@@ -30,7 +30,8 @@ It also has a helper function `CheckRequester()` which takes transatcion context
 
 **chiancode:** This folder contains `chaincode.go` which is actual `SmartContract`. Where all he  bussiness logic is implemented.
 
-Defination of the `RequestIssueCertificate()`. It submits request to the parent institution for issuing certificate of behalf of the student.It Takes `request_id string`, `student_name string`,` student_id int`, `degree string`, `major string`, `result float32` as parameters all these parameter are stored on the chain and those come from the child institutions.
+### Defination of the `RequestIssueCertificate()`. 
+It submits request to the parent institution for issuing certificate of behalf of the student.It Takes `request_id string`, `student_name string`,` student_id int`, `degree string`, `major string`, `result float32` as parameters all these parameter are stored on the chain and those come from the child institutions.
 `request_id string` act as tracking id for the whole lifecycle of the certficate issuing.
 
 ```javascript
@@ -80,11 +81,12 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 }
 ```
 
-Defination of the `IssueCertificate()` which is used to issues certificate by the parent institution.
+### Defination of the `IssueCertificate()` 
+Which is used to issues certificate by the parent institution.
 it takes `request_id string`,` certitficate_hash string`, `certificate_id int` as parameters. The `request_id string` is the id of the request that has been created by the child institution. Parent institution creates the hash of certificate file using `IPFS` and gives an certifcate id based on the sequencial order.Implementation `IPFS` is not impplemented it will done on the front end part of parent org. we have one `IPFS` service to genrate hash for the file.
 
 ```javascript
-unc (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContextInterface,
+ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContextInterface,
 	request_id string, certitficate_hash string, certificate_id int) (int, error) {
 
 	Issuer, err := utils.IsIssuer(ctx) // it checks  the transaction creator is permitted or not. 
@@ -153,10 +155,35 @@ unc (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContex
 }
 ```
 
+### Defination of the `ReadRequest()`
+It reads and return request from the ledger if the request exist in the ledger. it takes one`request_id` parameter to checks and return the request.
+
+```javascript
+
+
+func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInterface, request_id string) (*utils.CertificateRequest, error) {
+
+	jsonRequest, err := ctx.GetStub().GetState(request_id)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request from legder %w", err)
+	}
+
+	var request utils.CertificateRequest
+
+	err = json.Unmarshal(jsonRequest, &request)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal request %w", err)
+	}
+	return &request, nil
+}
+
+```
+
 
 
 **smartcontract.go:** It contains the `main()` function from wherer the chaincode is initiated and started. In golang `main()` function is the entrypoint for starting the program.
-
 
 
 
