@@ -30,6 +30,57 @@ It also has a helper function `CheckRequester()` which takes transatcion context
 
 **chiancode:** This folder contains `chaincode.go` which is actual `SmartContract`. Where all he  bussiness logic is implemented.
 
+Defination of the `RequestIssueCertificate()`. It submits request to the parent institution for issuing certificate of behalf of the student.It Takes `request_id string`, `student_name string`,` student_id int`, `degree string`, `major string`, `result float32` as parameters all these parameter are stored on the chain and those come from the child institutions.
+`request_id string` act as tracking id for the whole lifecycle of the certficate issuing.
+
+```javascript
+func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.TransactionContextInterface,
+	request_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
+
+	requester, err := utils.CheckRequester(ctx) // checks that only child institutation can submit request for issung certificate
+
+	if requester != "" && err == nil {
+		return "Not Authorized To Request Certificate", nil
+	}
+
+	encodedRequetserIdentity, err := ctx.GetClientIdentity().GetID() // it fetched the indenty of child institution which was used when creating the channel. it returned as base64 encoded .
+
+	if err != nil {
+		return "", fmt.Errorf("failed read clinet Identity %w", err)
+	}
+	decodedRequetserIdentity, err := base64.StdEncoding.DecodeString(encodedRequetserIdentity) // decoding the indenity.
+
+	if err != nil {
+		return "", fmt.Errorf("failed to decode client Identity %w", err)
+	}
+
+    // buildind the request object which will stored the the chain
+    // here `Certificate_Hash`,`Issuer_Authority`and `Certificate_Id` are empty beacuse those 
+    // field will be filled by the issuer authority. and `Is_Reqeust_Completed` is set to false
+    // as the certificate is not created yet.
+	request := utils.CertificateRequest{
+		Request_Id: request_id, Student_Name: student_name, Student_Id: student_id, Degree: degree, Major: major, Result: result,
+		Requester_Authority: string(decodedRequetserIdentity), Certificate_Hash: "", Issuer_Authority: "",
+		Is_Reqeust_Completed: false,
+		Certificate_Id:       0000,
+	}
+
+	requestJson, err := json.Marshal(request) // serializing the request to json object.
+
+	if err != nil {
+		return "", fmt.Errorf("failed to json marshal request %w", err)
+	}
+	err = ctx.GetStub().PutState(request.Request_Id, requestJson) // storing the json object to the ledger
+	if err != nil {
+		return "", fmt.Errorf("failed to add the request to the ledger %w", err)
+	}
+
+	return fmt.Sprintf("Submitted Request Id : ", request.Request_Id), nil // if the request is we will return requested that can used to track the record and for further record.
+
+}
+```
+
+
 
 **smartcontract.go:** It contains the `main()` function from wherer the chaincode is initiated and started. In golang `main()` function is the entrypoint for starting the program.
 
