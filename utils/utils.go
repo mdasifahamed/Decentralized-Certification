@@ -33,3 +33,14 @@ func CheckRequester(ctx contractapi.TransactionContextInterface) (string, error)
 	return "", nil
 
 }
+
+func IsIssuer(ctx contractapi.TransactionContextInterface) (bool, error) {
+
+	issuerMSP, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return false, err
+	}
+
+	return issuerMSP == "Org1MSP", nil
+
+}
