@@ -181,6 +181,49 @@ func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInt
 
 ```
 
+### Defination of the `GetAllTheRequests()`
+It returns an array of the all the request objects.
+
+### Defination of the `HistoryOfRequest()`
+It returns an array of the all the changes of a particular request. it takes `request_id` as a parameter.
+From we get the all the history of a reqeuest what happened to it, who has done what to it.
+even sometime try to temper a data from their side we can verufy from it.
+
+```javascript
+func (contract *SmartContract) GetAllTheRequests(ctx contractapi.TransactionContextInterface) ([]*utils.CertificateRequest, error) {
+
+	RequestQueryIterartor, err := ctx.GetStub().GetStateByRange("", "")
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get state %w", err)
+	}
+
+	defer RequestQueryIterartor.Close()
+
+	var requests []*utils.CertificateRequest
+
+	for RequestQueryIterartor.HasNext() {
+		queryResoonse, err := RequestQueryIterartor.Next()
+
+		if err != nil {
+			return nil, err
+		}
+
+		var request utils.CertificateRequest
+
+		err = json.Unmarshal(queryResoonse.Value, &request)
+
+		if err != nil {
+			return nil, err
+		}
+
+		requests = append(requests, &request)
+	}
+
+	return requests, nil
+}
+```
+
 
 
 **smartcontract.go:** It contains the `main()` function from wherer the chaincode is initiated and started. In golang `main()` function is the entrypoint for starting the program.
