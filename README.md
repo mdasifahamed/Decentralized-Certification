@@ -80,6 +80,79 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 }
 ```
 
+Defination of the `IssueCertificate()` which is used to issues certificate by the parent institution.
+it takes `request_id string`,` certitficate_hash string`, `certificate_id int` as parameters. The `request_id string` is the id of the request that has been created by the child institution. Parent institution creates the hash of certificate file using `IPFS` and gives an certifcate id based on the sequencial order.Implementation `IPFS` is not impplemented it will done on the front end part of parent org. we have one `IPFS` service to genrate hash for the file.
+
+```javascript
+unc (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContextInterface,
+	request_id string, certitficate_hash string, certificate_id int) (int, error) {
+
+	Issuer, err := utils.IsIssuer(ctx) // it checks  the transaction creator is permitted or not. 
+
+	if err != nil {
+		return 0000, err
+	}
+
+	if !Issuer {
+		return 0000, fmt.Errorf("Not Authorized To Issue Certificate")
+	}
+
+	exits, err := contract.IsRequestExist(ctx, request_id) // Checks the request id exist or not.
+
+	if err != nil {
+		return 0000, fmt.Errorf("%w", err)
+	}
+
+	if !exits {
+		return 0000, fmt.Errorf("Request does not exists with id  : %w", request_id)
+	}
+
+    // retrive the request and parse into go struct.
+	request, err := contract.ReadRequest(ctx, request_id)
+
+	if err != nil {
+		return 0000, fmt.Errorf("%w", err)
+	}
+
+	encodeIssuerIdenity, err := ctx.GetClientIdentity().GetID() // it fetches the identity of the client from the channel configuartion. it same as implemented in  the `RequestIssueCertificate()`
+
+	if err != nil {
+
+		return 0000, fmt.Errorf("failed read clinet Identity %w", err)
+	}
+
+	decodedIssuerIdentity, err := base64.StdEncoding.DecodeString(encodeIssuerIdenity) // decoding the idenity.
+	if err != nil {
+
+		return 0000, fmt.Errorf("failed read clinet Identity %w", err)
+	}
+    
+    // Updationg the request object which was incomplete when
+    // request is submitted.
+	request.Issuer_Authority = string(decodedIssuerIdentity)
+	request.Certificate_Id = certificate_id
+	request.Certificate_Hash = certitficate_hash
+	request.Is_Reqeust_Completed = true
+
+	jsonRequest, err := json.Marshal(request)
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to marshal request %w", err)
+	}
+
+    // Storing the completed request to the ledger
+	err = ctx.GetStub().PutState(request_id, jsonRequest)
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to add  request to ledger %w", err)
+	}
+
+    // on successfull completation we will return the certificate id which used to verify 
+    // from the chain later.
+	return request.Certificate_Id, nil
+}
+```
+
 
 
 **smartcontract.go:** It contains the `main()` function from wherer the chaincode is initiated and started. In golang `main()` function is the entrypoint for starting the program.
