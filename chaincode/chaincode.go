@@ -4,10 +4,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	utils "decentralized_certification_chaincode/utils"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+)
+
+const (
+	certKey     = "cert_to_request_id"
+	certhashKey = "cert_hash_to_request_id"
 )
 
 type SmartContract struct {
@@ -107,6 +113,18 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 		return 0000, fmt.Errorf("failed to marshal request %w", err)
 	}
 
+	compositKey, err := ctx.GetStub().CreateCompositeKey(certKey, []string{strconv.Itoa(request.Certificate_Id), request.Request_Id})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to create composite key: %w", err)
+	}
+
+	err = ctx.GetStub().PutState(compositKey, []byte{0x00})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to add  compositeKey to ledger %w", err)
+	}
+
 	err = ctx.GetStub().PutState(request_id, jsonRequest)
 
 	if err != nil {
@@ -180,6 +198,10 @@ func (contract *SmartContract) HistoryOfRequest(ctx contractapi.TransactionConte
 
 	RequestHistoryIterator, err := ctx.GetStub().GetHistoryForKey(request_id)
 
+	if err != nil {
+		return nil, err
+	}
+
 	var requestHistories []*utils.CertificateRequest
 	for RequestHistoryIterator.HasNext() {
 		queryResponse, err := RequestHistoryIterator.Next()
@@ -201,14 +223,49 @@ func (contract *SmartContract) HistoryOfRequest(ctx contractapi.TransactionConte
 
 }
 
-func (contract *SmartContract) ReadCertificate() {
+func (contract *SmartContract) ReadCertificateByCertificateId(ctx contractapi.TransactionContextInterface, certificate_id int) (*utils.CertificateRequest, error) {
+
+	resultIterartor, err := ctx.GetStub().GetStateByPartialCompositeKey(certKey, []string{strconv.Itoa(certificate_id)})
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resultIterartor.Close()
+
+	if !resultIterartor.HasNext() {
+		return nil, fmt.Errorf("not certificate found for the id %d", certificate_id)
+	}
+
+	queryResponse, err := resultIterartor.Next()
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, compositeKey, err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	requestId := compositeKey[1]
+
+	request, err := contract.ReadRequest(ctx, requestId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return request, nil
 
 }
-func (contract *SmartContract) VerifyCertificte() {
+func (contract *SmartContract) VerifyCertificateByCertificateHash() {
 
 }
 
 func (contract *SmartContract) IsRequestExist(ctx contractapi.TransactionContextInterface, reqquest_id string) (bool, error) {
+
 	jsonRequest, err := ctx.GetStub().GetState(reqquest_id)
 
 	if err != nil {
