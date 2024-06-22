@@ -7,7 +7,7 @@ import (
 )
 
 type CertificateRequest struct {
-	Request_Id           string  `json:request_id`
+	Tracking_Id          string  `json:tracking_id`
 	Student_Name         string  `json:student_name`
 	Student_Id           int     `json:student_id`
 	Degree               string  `json:degree`
