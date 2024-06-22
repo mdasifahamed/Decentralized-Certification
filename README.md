@@ -212,7 +212,49 @@ func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInt
 
 
 ### Defination of the `GetAllTheRequests()`
-It returns an array of the all the request objects.
+The function `GetAllTheRequests` is a method of the SmartContract. It retrieves all certificate requests stored in the blockchain ledger.
+
+```javascript
+	func (contract *SmartContract) GetAllTheRequests(ctx contractapi.TransactionContextInterface) ([]*utils.CertificateRequest, error) {
+
+	//It  initializes an iterator to fetch all the states in the ledger. An empty range ("", "") means it will return all key-value pairs.
+	RequestQueryIterartor, err := ctx.GetStub().GetStateByRange("", "")
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get state %w", err)
+	}
+	// Ensures that the iterator is closed when the function exits.
+	defer RequestQueryIterartor.Close()
+
+	// Array to hold the requests
+	var requests []*utils.CertificateRequest
+
+	// HasNext(): Checks if there are more results.
+	// Next(): Retrieves the next key-value pair from the iterator.
+	// json.Unmarshal: Converts the JSON-encoded value to a CertificateRequest object.
+	// append: Adds the CertificateRequest object to the requests slice.
+
+	for RequestQueryIterartor.HasNext() {
+		queryResoonse, err := RequestQueryIterartor.Next()
+
+		if err != nil {
+			return nil, err
+		}
+
+		var request utils.CertificateRequest
+
+		err = json.Unmarshal(queryResoonse.Value, &request)
+
+		if err != nil {
+			return nil, err
+		}
+
+		requests = append(requests, &request)
+	}
+	// Returns the array of `CertificateRequest` objects 
+	return requests, nil
+}
+```
 
 ### Defination of the `HistoryOfRequest()`
 It returns an array of the all the changes of a particular request. it takes `tracking_id` as a parameter.
