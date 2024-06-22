@@ -21,7 +21,7 @@ type SmartContract struct {
 }
 
 func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.TransactionContextInterface,
-	request_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
+	tracking_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
 
 	requester, err := utils.CheckRequester(ctx)
 
@@ -41,7 +41,7 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 	}
 
 	request := utils.CertificateRequest{
-		Request_Id: request_id, Student_Name: student_name, Student_Id: student_id, Degree: degree, Major: major, Result: result,
+		Tracking_Id: tracking_id, Student_Name: student_name, Student_Id: student_id, Degree: degree, Major: major, Result: result,
 		Requester_Authority: string(decodedRequetserIdentity), Certificate_Hash: "", Issuer_Authority: "",
 		Is_Reqeust_Completed: false,
 		Certificate_Id:       0000,
@@ -52,17 +52,17 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 	if err != nil {
 		return "", fmt.Errorf("failed to json marshal request %w", err)
 	}
-	err = ctx.GetStub().PutState(request.Request_Id, requestJson)
+	err = ctx.GetStub().PutState(request.Tracking_Id, requestJson)
 	if err != nil {
 		return "", fmt.Errorf("failed to add the request to the ledger %w", err)
 	}
 
-	return fmt.Sprintf("Submitted Request Id : ", request.Request_Id), nil
+	return fmt.Sprintf("Submitted Request Id : ", request.Tracking_Id), nil
 
 }
 
 func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContextInterface,
-	request_id string, certitficate_hash string, certificate_id int) (int, error) {
+	tracking_id string, certitficate_hash string, certificate_id int) (int, error) {
 
 	Issuer, err := utils.IsIssuer(ctx)
 
@@ -74,17 +74,17 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 		return 0000, fmt.Errorf("Not Authorized To Issue Certificate")
 	}
 
-	exits, err := contract.IsRequestExist(ctx, request_id)
+	exits, err := contract.IsRequestExist(ctx, tracking_id)
 
 	if err != nil {
 		return 0000, fmt.Errorf("%w", err)
 	}
 
 	if !exits {
-		return 0000, fmt.Errorf("Request does not exists with id  : %w", request_id)
+		return 0000, fmt.Errorf("Request does not exists with id  : %w", tracking_id)
 	}
 
-	request, err := contract.ReadRequest(ctx, request_id)
+	request, err := contract.ReadRequest(ctx, tracking_id)
 
 	if err != nil {
 		return 0000, fmt.Errorf("%w", err)
@@ -113,7 +113,7 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 		return 0000, fmt.Errorf("failed to marshal request %w", err)
 	}
 
-	compositKey, err := ctx.GetStub().CreateCompositeKey(certKey, []string{strconv.Itoa(request.Certificate_Id), request.Request_Id})
+	compositKey, err := ctx.GetStub().CreateCompositeKey(certKey, []string{strconv.Itoa(request.Certificate_Id), request.Tracking_Id})
 
 	if err != nil {
 		return 0000, fmt.Errorf("failed to create composite key: %w", err)
@@ -125,7 +125,21 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 		return 0000, fmt.Errorf("failed to add  compositeKey to ledger %w", err)
 	}
 
-	err = ctx.GetStub().PutState(request_id, jsonRequest)
+	// CreateComposite Key For The Certificate Hash
+
+	compositKeyForCertHash, err := ctx.GetStub().CreateCompositeKey(certhashKey, []string{request.Certificate_Hash, request.Tracking_Id})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to create composite key for hash: %w", err)
+	}
+
+	err = ctx.GetStub().PutState(compositKeyForCertHash, []byte{0x00})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to add  compositeKeyforcerthash to ledger %w", err)
+	}
+
+	err = ctx.GetStub().PutState(tracking_id, jsonRequest)
 
 	if err != nil {
 		return 0000, fmt.Errorf("failed to add  request to ledger %w", err)
@@ -134,9 +148,9 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 	return request.Certificate_Id, nil
 }
 
-func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInterface, request_id string) (*utils.CertificateRequest, error) {
+func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInterface, tracking_id string) (*utils.CertificateRequest, error) {
 
-	jsonRequest, err := ctx.GetStub().GetState(request_id)
+	jsonRequest, err := ctx.GetStub().GetState(tracking_id)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request from legder %w", err)
@@ -185,18 +199,18 @@ func (contract *SmartContract) GetAllTheRequests(ctx contractapi.TransactionCont
 	return requests, nil
 }
 
-func (contract *SmartContract) HistoryOfRequest(ctx contractapi.TransactionContextInterface, request_id string) ([]*utils.CertificateRequest, error) {
+func (contract *SmartContract) HistoryOfRequest(ctx contractapi.TransactionContextInterface, tracking_id string) ([]*utils.CertificateRequest, error) {
 
-	exits, err := contract.IsRequestExist(ctx, request_id)
+	exits, err := contract.IsRequestExist(ctx, tracking_id)
 
 	if err != nil {
 		return nil, err
 	}
 	if !exits {
-		return nil, fmt.Errorf("no request found for the provide request id %w", request_id)
+		return nil, fmt.Errorf("no request found for the provide request id %w", tracking_id)
 	}
 
-	RequestHistoryIterator, err := ctx.GetStub().GetHistoryForKey(request_id)
+	RequestHistoryIterator, err := ctx.GetStub().GetHistoryForKey(tracking_id)
 
 	if err != nil {
 		return nil, err
@@ -249,9 +263,9 @@ func (contract *SmartContract) ReadCertificateByCertificateId(ctx contractapi.Tr
 		return nil, err
 	}
 
-	requestId := compositeKey[1]
+	tracking_id := compositeKey[1]
 
-	request, err := contract.ReadRequest(ctx, requestId)
+	request, err := contract.ReadRequest(ctx, tracking_id)
 
 	if err != nil {
 		return nil, err
@@ -260,13 +274,42 @@ func (contract *SmartContract) ReadCertificateByCertificateId(ctx contractapi.Tr
 	return request, nil
 
 }
-func (contract *SmartContract) VerifyCertificateByCertificateHash() {
+func (contract *SmartContract) VerifyCertificateByCertificateHash(ctx contractapi.TransactionContextInterface, cert_hash string) (*utils.CertificateRequest, error) {
+	resultIterartor, err := ctx.GetStub().GetStateByPartialCompositeKey(certhashKey, []string{cert_hash})
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resultIterartor.Close()
+
+	if !resultIterartor.HasNext() {
+		return nil, fmt.Errorf("No Certificate found for the hash : %w", cert_hash)
+	}
+
+	queryResponse, err := resultIterartor.Next()
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, compositKeyForHash, err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+
+	tracking_id := compositKeyForHash[1]
+
+	request, err := contract.ReadRequest(ctx, tracking_id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return request, nil
 
 }
 
-func (contract *SmartContract) IsRequestExist(ctx contractapi.TransactionContextInterface, reqquest_id string) (bool, error) {
+func (contract *SmartContract) IsRequestExist(ctx contractapi.TransactionContextInterface, tracking_id string) (bool, error) {
 
-	jsonRequest, err := ctx.GetStub().GetState(reqquest_id)
+	jsonRequest, err := ctx.GetStub().GetState(tracking_id)
 
 	if err != nil {
 		return false, fmt.Errorf("failed to read asset %w", err)
