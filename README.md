@@ -348,7 +348,52 @@ func (contract *SmartContract) ReadCertificateByCertificateId(ctx contractapi.Tr
 }
 
 ```
+### Defination of `VerifyCertificateByCertificateHash()`
+The function `VerifyCertificateByCertificateHash()` verifies a certificate is it legit or by cheking it preseance on the chain.  It takes `cert_hash (string)` as parameter. It verifies a certificate by its hash and retrieves the corresponding certificate request from the ledger if it present on the chain. 
 
+
+```javascript
+func (contract *SmartContract) VerifyCertificateByCertificateHash(ctx contractapi.TransactionContextInterface, cert_hash string) (*utils.CertificateRequest, error) {
+	
+	// It initializes an iterator to fetch all states that match the partial composite key formed using `certhashKey` and `cert_hash`.
+	resultIterartor, err := ctx.GetStub().GetStateByPartialCompositeKey(certhashKey, []string{cert_hash})
+
+	if err != nil {
+		return nil, err
+	}
+	// Ensures that the iterator is closed when the function exits to release resources.
+	defer resultIterartor.Close()
+
+	// If the iterator does not have any results, the function returns nil and an error indicating that no certificate was found for the given hash.
+	if !resultIterartor.HasNext() {
+		return nil, fmt.Errorf("No Certificate found for the hash : %w", cert_hash)
+	}
+
+	// Retrieve the next result
+	queryResponse, err := resultIterartor.Next()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// It splits the composite key to extract its components. The second component is assumed to be the `tracking_id`.
+	_, compositKeyForHash, err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+
+	// retrieve the tracking ID.
+	tracking_id := compositKeyForHash[1]
+
+	//It calls the ReadRequest method (presumably defined elsewhere) to read the certificate request associated with the tracking_id.
+	request, err := contract.ReadRequest(ctx, tracking_id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the certificate request:
+	return request, nil
+
+}
+```
 
 **smartcontract.go:** It contains the `main()` function from wherer the chaincode is initiated and started. In golang `main()` function is the entrypoint for starting the program.
 
