@@ -207,6 +207,10 @@ func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInt
 
 ```
 
+
+
+
+
 ### Defination of the `GetAllTheRequests()`
 It returns an array of the all the request objects.
 
@@ -250,6 +254,58 @@ func (contract *SmartContract) GetAllTheRequests(ctx contractapi.TransactionCont
 }
 ```
 
+### Defination of the `ReadCertificateByCertificateId()`
+The` ReadCertificateByCertificateId()` function retrieves a certificate request from the ledger using a provided `certificate_id (int)` The unique ID  certificate ID. It takes the certificate ID as input and returns the corresponding CertificateRequest object if found.
+
+```javascript
+
+func (contract *SmartContract) ReadCertificateByCertificateId(ctx contractapi.TransactionContextInterface, certificate_id int) (*utils.CertificateRequest, error) {
+
+	// The function creates a query to retrieve the state by a partial composite key using `ctx.GetStub().GetStateByPartialCompositeKey(certKey, []string{strconv.Itoa(certificate_id)})`
+	resultIterartor, err := ctx.GetStub().GetStateByPartialCompositeKey(certKey, []string{strconv.Itoa(certificate_id)})
+
+	if err != nil {
+		return nil, err
+	}
+	
+	// It uses defer resultIterator.Close() to ensure the iterator is closed after the function execution.
+	defer resultIterartor.Close()
+	
+	// The function checks if the iterator has any results using resultIterator.HasNext().
+	if !resultIterartor.HasNext() {
+		return nil, fmt.Errorf("not certificate found for the id %d", certificate_id)
+	}
+
+	// It retrieves the next result from the iterator using resultIterator.Next().
+	queryResponse, err := resultIterartor.Next()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// The function splits the composite key using ctx.GetStub().SplitCompositeKey(queryResponse.Key).
+	_, compositeKey, err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// It extracts the tracking_id from the composite key parts. The tracking_id is the second element in the compositeKey array.
+	tracking_id := compositeKey[1]
+	
+	// The function calls contract.ReadRequest(ctx, tracking_id) to retrieve the certificate request using the extracted tracking_id.
+	request, err := contract.ReadRequest(ctx, tracking_id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// On successful completion, the function returns the CertificateRequest object.
+	return request, nil
+
+}
+
+```
 
 
 **smartcontract.go:** It contains the `main()` function from wherer the chaincode is initiated and started. In golang `main()` function is the entrypoint for starting the program.
