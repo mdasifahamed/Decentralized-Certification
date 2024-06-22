@@ -10,7 +10,7 @@ There are two mian folder **utils** and **chaincode** and one main file **smartc
 **utils:** It contains the all the utility functions and data type for the smartcontract.The `utils.go` file has the the following  structure which will be used on the chaincode.
 ```javascript
     type CertificateRequest struct {
-        Request_Id           string  `json:request_id` // it will be dynamically created and will be unique
+        Tracking_Id           string  `json:tracking_id` // it will be dynamically created and will be unique
         Student_Name         string  `json:student_name` // it will come from the child institutation
         Student_Id           int     `json:student_id` // it will come from the child institutation
         Degree               string  `json:degree` // it will come from the child institutation
@@ -31,12 +31,12 @@ It also has a helper function `CheckRequester()` which takes transatcion context
 **chiancode:** This folder contains `chaincode.go` which is actual `SmartContract`. Where all he  bussiness logic is implemented.
 
 ### Defination of the `RequestIssueCertificate()`. 
-It submits request to the parent institution for issuing certificate of behalf of the student.It Takes `request_id string`, `student_name string`,` student_id int`, `degree string`, `major string`, `result float32` as parameters all these parameter are stored on the chain and those come from the child institutions.
-`request_id string` act as tracking id for the whole lifecycle of the certficate issuing.
+It submits request to the parent institution for issuing certificate of behalf of the student.It Takes `tracking_id string`, `student_name string`,` student_id int`, `degree string`, `major string`, `result float32` as parameters all these parameter are stored on the chain and those come from the child institutions.
+`tracking_id string` act as tracking id for the whole lifecycle of the certficate issuing.
 
 ```javascript
 func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.TransactionContextInterface,
-	request_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
+	tracking_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
 
 	requester, err := utils.CheckRequester(ctx) // checks that only child institutation can submit request for issung certificate
 
@@ -71,99 +71,125 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 	if err != nil {
 		return "", fmt.Errorf("failed to json marshal request %w", err)
 	}
-	err = ctx.GetStub().PutState(request.Request_Id, requestJson) // storing the json object to the ledger
+	err = ctx.GetStub().PutState(request.Tracking_Id, requestJson) // storing the json object to the ledger
 	if err != nil {
 		return "", fmt.Errorf("failed to add the request to the ledger %w", err)
 	}
 
-	return fmt.Sprintf("Submitted Request Id : ", request.Request_Id), nil // if the request is we will return requested that can used to track the record and for further record.
+	return fmt.Sprintf("Submitted Request Id : ", request.Tracking_Id), nil // if the request is we will return requested that can used to track the record and for further record.
 
 }
 ```
 
 ### Defination of the `IssueCertificate()` 
-Which is used to issues certificate by the parent institution.
-it takes `request_id string`,` certitficate_hash string`, `certificate_id int` as parameters. The `request_id string` is the id of the request that has been created by the child institution. Parent institution creates the hash of certificate file using `IPFS` and gives an certifcate id based on the sequencial order.Implementation `IPFS` is not impplemented it will done on the front end part of parent org. we have one `IPFS` service to genrate hash for the file.
+The `IssueCertificate()` function issues a certificate by the parent institution. It takes three parameters:` tracking_id (string)`, `certificate_hash (string)`, and` certificate_id (int)`. The `tracking_id` is the ID created by the child institution. The parent institution generates the hash of the certificate file using `IPFS` (handled on the front end of the parent organization) and assigns a certificate ID sequentially.
 
 ```javascript
- func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContextInterface,
-	request_id string, certitficate_hash string, certificate_id int) (int, error) {
+func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionContextInterface,
+	tracking_id string, certitficate_hash string, certificate_id int) (int, error) {
 
-	Issuer, err := utils.IsIssuer(ctx) // it checks  the transaction creator is permitted or not. 
-
+	Issuer, err := utils.IsIssuer(ctx) //The function calls `utils.IsIssuer(ctx)` to check if the transaction creator is permitted to issue certificates.
 	if err != nil {
 		return 0000, err
 	}
-
 	if !Issuer {
 		return 0000, fmt.Errorf("Not Authorized To Issue Certificate")
 	}
 
-	exits, err := contract.IsRequestExist(ctx, request_id) // Checks the request id exist or not.
-
+	// It calls `contract.IsRequestExist(ctx, tracking_id)` to verify if the request with the given tracking_id exists.
+	exits, err := contract.IsRequestExist(ctx, tracking_id)
 	if err != nil {
 		return 0000, fmt.Errorf("%w", err)
 	}
-
 	if !exits {
-		return 0000, fmt.Errorf("Request does not exists with id  : %w", request_id)
+		return 0000, fmt.Errorf("Request does not exists with id  : %w", tracking_id)
 	}
 
-    // retrive the request and parse into go struct.
-	request, err := contract.ReadRequest(ctx, request_id)
+	// The function retrieves the request using `contract.ReadRequest(ctx, tracking_id)`
+	request, err := contract.ReadRequest(ctx, tracking_id)
 
 	if err != nil {
 		return 0000, fmt.Errorf("%w", err)
 	}
 
-	encodeIssuerIdenity, err := ctx.GetClientIdentity().GetID() // it fetches the identity of the client from the channel configuartion. it same as implemented in  the `RequestIssueCertificate()`
+	// It fetches the identity of the client from the channel configuration using `ctx.GetClientIdentity().GetID().`
+	encodeIssuerIdenity, err := ctx.GetClientIdentity().GetID()
 
 	if err != nil {
 
 		return 0000, fmt.Errorf("failed read clinet Identity %w", err)
 	}
 
-	decodedIssuerIdentity, err := base64.StdEncoding.DecodeString(encodeIssuerIdenity) // decoding the idenity.
+	//The function decodes the issuer identity using` base64.StdEncoding.DecodeString(encodeIssuerIdenity)`.
+	decodedIssuerIdentity, err := base64.StdEncoding.DecodeString(encodeIssuerIdenity)
 	if err != nil {
 
 		return 0000, fmt.Errorf("failed read clinet Identity %w", err)
 	}
-    
-    // Updationg the request object which was incomplete when
-    // request is submitted.
+
+	// Updates the request object with the following
 	request.Issuer_Authority = string(decodedIssuerIdentity)
 	request.Certificate_Id = certificate_id
 	request.Certificate_Hash = certitficate_hash
 	request.Is_Reqeust_Completed = true
 
+	// The updated request is serialized into JSON using `json.Marshal(request)`
 	jsonRequest, err := json.Marshal(request)
 
 	if err != nil {
 		return 0000, fmt.Errorf("failed to marshal request %w", err)
 	}
 
-    // Storing the completed request to the ledger
-	err = ctx.GetStub().PutState(request_id, jsonRequest)
+	// The function creates a composite key for the certificate using `ctx.GetStub().CreateCompositeKey(certKey, []string{strconv.Itoa(request.Certificate_Id), request.Tracking_Id})`.
+	// This Composit Key Will be used to retrive a specific certifcate naesd on its id from the chain.
+	compositKey, err := ctx.GetStub().CreateCompositeKey(certKey, []string{strconv.Itoa(request.Certificate_Id), request.Tracking_Id})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to create composite key: %w", err)
+	}
+
+	// It stores the composite key in the ledger using `ctx.GetStub().PutState(compositKey, []byte{0x00})`.
+	err = ctx.GetStub().PutState(compositKey, []byte{0x00})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to add  compositeKey to ledger %w", err)
+	}
+
+	// The function creates a composite key for the certificate hash using `ctx.GetStub().		CreateCompositeKey(certhashKey, []string{request.Certificate_Hash, request.Tracking_Id})`.
+	// It will be used to retrive certicafte or verify a certificate by its hash from on chain.
+
+	compositKeyForCertHash, err := ctx.GetStub().CreateCompositeKey(certhashKey, []string{request.Certificate_Hash, request.Tracking_Id})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to create composite key for hash: %w", err)
+	}
+
+	err = ctx.GetStub().PutState(compositKeyForCertHash, []byte{0x00})
+
+	if err != nil {
+		return 0000, fmt.Errorf("failed to add  compositeKeyforcerthash to ledger %w", err)
+	}
+
+	// The function stores the completed request in the ledger using `ctx.GetStub().PutState(tracking_id, jsonRequest)`.
+	err = ctx.GetStub().PutState(tracking_id, jsonRequest)
 
 	if err != nil {
 		return 0000, fmt.Errorf("failed to add  request to ledger %w", err)
 	}
-
-    // on successfull completation we will return the certificate id which used to verify 
-    // from the chain later.
+	// On successful completion, the function returns the `Certificate_Id` which can be used for later verification from the chain.
 	return request.Certificate_Id, nil
 }
 ```
 
 ### Defination of the `ReadRequest()`
-It reads and return request from the ledger if the request exist in the ledger. it takes one`request_id` parameter to checks and return the request.
+It reads and return request from the ledger if the request exist in the ledger. it takes one`tracking_id` parameter to checks and return the request.
 
 ```javascript
 
 
-func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInterface, request_id string) (*utils.CertificateRequest, error) {
+func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInterface, tracking_id string) (*utils.CertificateRequest, error) {
 
-	jsonRequest, err := ctx.GetStub().GetState(request_id)
+	jsonRequest, err := ctx.GetStub().GetState(tracking_id)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request from legder %w", err)
@@ -185,7 +211,7 @@ func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInt
 It returns an array of the all the request objects.
 
 ### Defination of the `HistoryOfRequest()`
-It returns an array of the all the changes of a particular request. it takes `request_id` as a parameter.
+It returns an array of the all the changes of a particular request. it takes `tracking_id` as a parameter.
 From we get the all the history of a reqeuest what happened to it, who has done what to it.
 even sometime try to temper a data from their side we can verufy from it.
 
