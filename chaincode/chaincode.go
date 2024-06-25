@@ -16,28 +16,35 @@ const (
 	certhashKey = "cert_hash_to_request_id"
 )
 
+type TrackingIdResponse struct {
+	TrackingId string `json:tracking_id`
+}
 type SmartContract struct {
 	contractapi.Contract
 }
 
 func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.TransactionContextInterface,
-	tracking_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
+	tracking_id string, student_name string, student_id int, degree string, major string, result float32) (*TrackingIdResponse, error) {
 
 	requester, err := utils.CheckRequester(ctx)
 
 	if requester != "" && err == nil {
-		return "Not Authorized To Request Certificate", nil
+		request_response := TrackingIdResponse{
+			TrackingId: "Not Authorized Submit Request",
+		}
+
+		return &request_response, nil
 	}
 
 	encodedRequetserIdentity, err := ctx.GetClientIdentity().GetID()
 
 	if err != nil {
-		return "", fmt.Errorf("failed read clinet Identity %w", err)
+		return nil, fmt.Errorf("failed read clinet Identity %w", err)
 	}
 	decodedRequetserIdentity, err := base64.StdEncoding.DecodeString(encodedRequetserIdentity)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to decode client Identity %w", err)
+		return nil, fmt.Errorf("failed to decode client Identity %w", err)
 	}
 
 	request := utils.CertificateRequest{
@@ -50,14 +57,18 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 	requestJson, err := json.Marshal(request)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to json marshal request %w", err)
+		return nil, fmt.Errorf("failed to json marshal request %w", err)
 	}
 	err = ctx.GetStub().PutState(request.Tracking_Id, requestJson)
 	if err != nil {
-		return "", fmt.Errorf("failed to add the request to the ledger %w", err)
+		return nil, fmt.Errorf("failed to add the request to the ledger %w", err)
 	}
 
-	return fmt.Sprintf("Submitted Request Id : ", request.Tracking_Id), nil
+	request_response := TrackingIdResponse{
+		TrackingId: request.Tracking_Id,
+	}
+
+	return &request_response, nil
 
 }
 
