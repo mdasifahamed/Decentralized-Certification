@@ -36,6 +36,19 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 		return &request_response, nil
 	}
 
+	isExits, err := contract.IsRequestExist(ctx, tracking_id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !isExits {
+		request_response := TrackingIdResponse{
+			TrackingId: fmt.Sprintf("A Request  Already Exists With the Id : %s", tracking_id),
+		}
+		return &request_response, err
+	}
+
 	encodedRequetserIdentity, err := ctx.GetClientIdentity().GetID()
 
 	if err != nil {
@@ -160,6 +173,16 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 }
 
 func (contract *SmartContract) ReadRequest(ctx contractapi.TransactionContextInterface, tracking_id string) (*utils.CertificateRequest, error) {
+
+	exits, err := contract.IsRequestExist(ctx, tracking_id)
+
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
+	}
+
+	if !exits {
+		return nil, fmt.Errorf("Request does not exists with id  : %w", tracking_id)
+	}
 
 	jsonRequest, err := ctx.GetStub().GetState(tracking_id)
 
