@@ -42,7 +42,7 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 		return nil, err
 	}
 
-	if !isExits {
+	if (isExits == true) && (err == nil) {
 		request_response := TrackingIdResponse{
 			TrackingId: fmt.Sprintf("A Request  Already Exists With the Id : %s", tracking_id),
 		}
