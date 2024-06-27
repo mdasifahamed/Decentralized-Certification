@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	certKey     = "cert_to_request_id"
-	certhashKey = "cert_hash_to_request_id"
+	certKey             = "cert_to_request_id"
+	certhashKey         = "cert_hash_to_request_id"
+	duplicateRequestKey = "dupliReqKey"
 )
 
 type TrackingIdResponse struct {
@@ -50,6 +51,26 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 		return &request_response, err
 	}
 
+	compositKey, err := ctx.GetStub().CreateCompositeKey(duplicateRequestKey, []string{student_name, strconv.Itoa(student_id), degree, major})
+	if err != nil {
+		return nil, fmt.Errorf("failed create composit key %w", err)
+	}
+
+	isrequestExits, err := ctx.GetStub().GetState(compositKey)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed read from the ledger")
+	}
+
+	if isrequestExits != nil {
+		request_response := TrackingIdResponse{
+			TrackingId: fmt.Sprintf("A Request  Already Exists With the Name : %s , Student_Id : %s Degree: %s , Major: %s",
+				student_name, strconv.Itoa(student_id), degree, major),
+		}
+		return &request_response, nil
+	}
+
 	encodedRequetserIdentity, err := ctx.GetClientIdentity().GetID()
 
 	if err != nil {
@@ -74,8 +95,14 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 		return nil, fmt.Errorf("failed to json marshal request %w", err)
 	}
 	err = ctx.GetStub().PutState(request.Tracking_Id, requestJson)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to add the request to the ledger %w", err)
+	}
+
+	err = ctx.GetStub().PutState(compositKey, []byte{0x00})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add the composit to the ledger %w", err)
 	}
 
 	request_response := TrackingIdResponse{
