@@ -107,6 +107,10 @@ func (contract *SmartContract) IssueCertificate(ctx contractapi.TransactionConte
 
 	// The function retrieves the request using `contract.ReadRequest(ctx, tracking_id)`
 	request, err := contract.ReadRequest(ctx, tracking_id)
+	// Double Certificate Creation Check
+	if request.Is_Reqeust_Completed {
+		return -1, nil
+	}
 
 	if err != nil {
 		return 0000, fmt.Errorf("%w", err)
