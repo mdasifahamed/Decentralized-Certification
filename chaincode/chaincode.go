@@ -19,6 +19,7 @@ const (
 type TrackingIdResponse struct {
 	TrackingId string `json:tracking_id`
 }
+
 type SmartContract struct {
 	contractapi.Contract
 }
