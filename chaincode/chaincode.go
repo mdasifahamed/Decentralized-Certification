@@ -26,7 +26,13 @@ type SmartContract struct {
 }
 
 func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.TransactionContextInterface,
-	tracking_id string, student_name string, student_id int, degree string, major string, result float32) (*TrackingIdResponse, error) {
+	tracking_id string,
+	student_name string,
+	student_id int,
+	student_email string,
+	degree string,
+	major string,
+	result float32) (*TrackingIdResponse, error) {
 
 	requester, err := utils.CheckRequester(ctx)
 
@@ -51,7 +57,7 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 		return &request_response, err
 	}
 
-	compositKey, err := ctx.GetStub().CreateCompositeKey(duplicateRequestKey, []string{student_name, strconv.Itoa(student_id), degree, major})
+	compositKey, err := ctx.GetStub().CreateCompositeKey(duplicateRequestKey, []string{student_name, strconv.Itoa(student_id), student_email, degree, major})
 	if err != nil {
 		return nil, fmt.Errorf("failed create composit key %w", err)
 	}
@@ -65,8 +71,8 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 
 	if isrequestExits != nil {
 		request_response := TrackingIdResponse{
-			TrackingId: fmt.Sprintf("A Request  Already Exists With the Name : %s , Student_Id : %s Degree: %s , Major: %s",
-				student_name, strconv.Itoa(student_id), degree, major),
+			TrackingId: fmt.Sprintf("A Request  Already Exists With the Name : %s , Student_Id : %s,  Student_Email : %s Degree: %s , Major: %s",
+				student_name, strconv.Itoa(student_id), student_email, degree, major),
 		}
 		return &request_response, nil
 	}
@@ -83,7 +89,7 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
 	}
 
 	request := utils.CertificateRequest{
-		Tracking_Id: tracking_id, Student_Name: student_name, Student_Id: student_id, Degree: degree, Major: major, Result: result,
+		Tracking_Id: tracking_id, Student_Name: student_name, Student_Email: student_email, Student_Id: student_id, Degree: degree, Major: major, Result: result,
 		Requester_Authority: string(decodedRequetserIdentity), Certificate_Hash: "", Issuer_Authority: "",
 		Is_Reqeust_Completed: false,
 		Certificate_Id:       0000,

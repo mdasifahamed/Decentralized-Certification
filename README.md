@@ -13,6 +13,7 @@ There are two mian folder **utils** and **chaincode** and one main file **smartc
         Tracking_Id           string  `json:tracking_id` // it will be dynamically created and will be unique
         Student_Name         string  `json:student_name` // it will come from the child institutation
         Student_Id           int     `json:student_id` // it will come from the child institutation
+        Student_Email        string  `json:student_email` // it will come from the child institutation
         Degree               string  `json:degree` // it will come from the child institutation
         Major                string  `json:major` // it will come from the child institutation
         Result               float32 `json:result` // it will come from the child institutation
@@ -36,7 +37,7 @@ It submits request to the parent institution for issuing certificate of behalf o
 
 ```javascript
 func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.TransactionContextInterface,
-	tracking_id string, student_name string, student_id int, degree string, major string, result float32) (string, error) {
+	tracking_id string, student_name string, student_id int, student_email string, degree string, major string, result float32) (string, error) {
 
 	requester, err := utils.CheckRequester(ctx) // checks that only child institutation can submit request for issung certificate
 
@@ -60,7 +61,7 @@ func (contract *SmartContract) RequestIssueCertificate(ctx contractapi.Transacti
     // field will be filled by the issuer authority. and `Is_Reqeust_Completed` is set to false
     // as the certificate is not created yet.
 	request := utils.CertificateRequest{
-		Request_Id: request_id, Student_Name: student_name, Student_Id: student_id, Degree: degree, Major: major, Result: result,
+		Request_Id: request_id, Student_Name: student_name, Student_Id: student_id, Student_Email :student_email, Degree: degree, Major: major, Result: result,
 		Requester_Authority: string(decodedRequetserIdentity), Certificate_Hash: "", Issuer_Authority: "",
 		Is_Reqeust_Completed: false,
 		Certificate_Id:       0000,

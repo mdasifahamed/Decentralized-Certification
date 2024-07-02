@@ -10,6 +10,7 @@ type CertificateRequest struct {
 	Tracking_Id          string  `json:tracking_id`
 	Student_Name         string  `json:student_name`
 	Student_Id           int     `json:student_id`
+	Student_Email        string  `json:student_email`
 	Degree               string  `json:degree`
 	Major                string  `json:major`
 	Result               float32 `json:result`
